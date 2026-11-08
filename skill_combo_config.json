@@ -1,0 +1,96 @@
+{
+  "SKILL_COOLDOWNS": {
+    "1": 0.0,
+    "2": 0.0,
+    "3": 0.0,
+    "4": 0.0
+  },
+  "COMBO_SETS": [
+    {
+      "name": "Basic DPS Rotation",
+      "skills": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "cooldown": 0.0,
+      "delay_between_skills": 0.0,
+      "enabled": true
+    }
+  ],
+  "DELAY_RANDOMIZATION": 0.15,
+  "SKILL_COMBO_ENABLED": true,
+  "PRE_MACRO_FOCUS_ENABLED": false,
+  "PRE_MACRO_FOCUS_DELAY": 0.25,
+  "INPUT_BACKEND": "interception",
+  "INPUT_DRY_RUN": false,
+  "COMBO_PRIORITY": null,
+  "STEALTH_ATTACK_MODE_ENABLED": true,
+  "ATTACK_MODE_WEIGHTS": {
+    "standard_attack": 0.5,
+    "single_skill": 0.3,
+    "combo_set": 0.2
+  },
+  "SINGLE_SKILL_POOL": [
+    "1",
+    "2",
+    "3",
+    "4"
+  ],
+  "SINGLE_SKILL_GLOBAL_COOLDOWN": 0.0,
+  "COMBAT_USE_SKILLS": true,
+  "LANGUAGE": "en",
+  "SKILL_METADATA": {},
+  "HEALING": {
+    "ENABLED": true,
+    "HP_BAR": {
+      "x0": 0.3709,
+      "y0": 0.8838,
+      "x1": 0.4742,
+      "y1": 0.8954,
+      "lum_threshold": 55
+    },
+    "SKILLS": {
+      "regen": {
+        "key": "6",
+        "cooldown": 30.0,
+        "hp_below": 0.9,
+        "enabled": true
+      },
+      "radiant": {
+        "key": "5",
+        "cooldown": 9.0,
+        "hp_below": 0.7,
+        "enabled": true
+      },
+      "heal": {
+        "key": "7",
+        "cooldown": 4.0,
+        "hp_below": 0.5,
+        "enabled": true
+      },
+      "potion": {
+        "key": "-",
+        "cooldown": 15.0,
+        "hp_below": 0.3,
+        "enabled": true
+      }
+    },
+    "MP_BAR": {
+      "x0": 0.5248,
+      "y0": 0.8838,
+      "x1": 0.6291,
+      "y1": 0.8972,
+      "lum_threshold": 70
+    },
+    "MANA": {
+      "POTION": {
+        "key": "-",
+        "cooldown": 15.0,
+        "mp_below": 0.3,
+        "enabled": true
+      }
+    }
+  }
+}

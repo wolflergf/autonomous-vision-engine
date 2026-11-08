@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Build & Tooling
+build/
+dist/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Heavy Assets & Weights
+*.pt
+*.onnx
+*.engine
+*.bin
+models/*.pt
+models/*.onnx
+models/*.engine
+!models/.gitkeep
+
+# System & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+Thumbs.db
+Desktop.ini
+
+# Logs & Config Dumps
+*.log
+*.tmp
+logs/

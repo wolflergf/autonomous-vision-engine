@@ -1,0 +1,8 @@
+# Regras de Execução de Terminal
+
+1. NUNCA execute comandos chamando `python` ou `pip` diretamente.
+2. Todas as execuções de scripts, testes e ferramentas DEVEM usar:
+   - `uv run python <script>`
+   ou
+   - `.\.venv\Scripts\python.exe <script>`
+3. O terminal padrão do VS Code não ativa o venv automaticamente nesta extensão. Portanto, comandos soltos que dependem do PATH apontam para o Python global incorreto.

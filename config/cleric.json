@@ -1,0 +1,46 @@
+{
+  "class_name": "Cleric",
+  "global_cooldown": 0.25,
+  "rotation": [
+    {
+      "key": "5",
+      "name": "Buff / Shield / Sustain Chain (Tecla 5)",
+      "cooldown": 6.0,
+      "burst_count": 3,
+      "press_duration": 0.22,
+      "interval_between_burst": 0.35
+    },
+    {
+      "key": "t",
+      "name": "Main Spender Chain (Tecla T - 4 Elos)",
+      "cooldown": 2.0,
+      "burst_count": 4,
+      "press_duration": 0.35,
+      "interval_between_burst": 0.38
+    },
+    {
+      "key": "r",
+      "name": "Mana Regen / Projétil Principal (Tecla R)",
+      "cooldown": 1.5,
+      "burst_count": 1,
+      "press_duration": 0.15,
+      "interval_between_burst": 0.10
+    },
+    {
+      "key": "q",
+      "name": "Lightning Bolt (Tecla Q)",
+      "cooldown": 4.0,
+      "burst_count": 2,
+      "press_duration": 0.15,
+      "interval_between_burst": 0.10
+    },
+    {
+      "key": "e",
+      "name": "Holy Retribution - Finalizador/Filler (Tecla E)",
+      "cooldown": 5.0,
+      "burst_count": 3,
+      "press_duration": 0.20,
+      "interval_between_burst": 0.30
+    }
+  ]
+}
