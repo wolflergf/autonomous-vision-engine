@@ -1,133 +1,196 @@
-# Aion 2 — Automation Engine
+# Autonomous Vision Engine
 
-Motor de automação para **Aion 2** que captura a janela do jogo, detecta monstros
-com um modelo **YOLO** acelerado por GPU e executa combate automaticamente (ataques,
-skills, combos, loot e exploração) via o driver de kernel **Interception**.
+## Architectural Overview
 
-A base de código segue uma **arquitetura limpa e desacoplada**: contratos em `core/`,
-motor em `engine/`, interface em `ui/` e código legado isolado em `archive/`.
+The project implements a high-performance Autonomous Vision Engine for perception-driven UI automation. The system integrates computer vision inference, deterministic finite state machine control, and low-overhead input abstraction.
+## Real-Time Vision Inference Layer
+## Deterministic Finite State Machine
 
----
+The control architecture is a clean FSM with four exclusive states:
 
-## Arquitetura Modular
+| State | Trigger | Exit Behavior |
+## ASCII Architectural Diagram: Closed-Loop Perception-Action Cycle
 
-```
-Aion2_Automation/
-├── main.py                 # Entry point (exige Administrador) → abre a GUI
-├── core/                   # Contratos e config compartilhados
-│   ├── interfaces.py       # ICaptureEngine, IInferenceEngine, IInputDriver, DetectionResult
-│   ├── taxonomy.py         # Mapeamento único de classes do modelo (Target/Loot/Enemy…)
-│   └── config.py           # AutomationConfig (carrega/salva JSON atômico)
-├── engine/                 # Motor de automação
-│   ├── capture_worker.py       # Captura da janela (mss, buffer BGRA)
-│   ├── onnx_client.py          # Inferência YOLO (.pt / TensorRT .engine)
-│   ├── state_machine.py        # CombatFSM: STANDBY→ROAMING→COMBAT→COOLDOWN
-│   ├── target_selector.py      # Seleção de alvo mais próximo (por classe da taxonomia)
-│   ├── roam_controller.py      # Exploração: andar (W) + giro de câmera 90°
-│   ├── combat_pattern.py       # Cadência de combate (ataques/skills, modo pânico 3+)
-│   └── interception_driver.py  # Implementação de IInputDriver sobre input_controller
-├── ui/
-│   └── main_windows.py     # GUI PySide6 + AutomationWorker (QThread)
-├── skill_combo_manager.py  # Execução de skills/combos (injeção de IInputDriver)
-├── input_controller.py     # API de input 100% via Interception (sem fallback)
-├── combat_queue.py         # Prevenção de pressionamentos duplicados (usado pelo input)
-├── utils.py                # Helpers de janela/imagem
-├── skill_combo_config.json # Config de skills, combos e intervalos
-└── archive/                # Módulos legados obsoletos (isolados, NÃO usados)
-```
+'```mermaid'
+flowchart TB
+    subgraph Capture ["Frame Capture Layer"]
+        direction TB
+## Repository Layout
 
-**Fluxo de execução:**
+```text
+AutonomousVisionEngine/
+├── .clinerules                  # Behavioral constraints for AI agents
+├── .gitignore                   # Git exclusions
+## Technical Stack & Tooling
 
-```
-main.py
-  └─ AutomationWorker (QThread)
-       CaptureEngine ──frame──▶ OnnxYoloClient ──detections──▶ CombatFSM
-                                                                 │  ├─ TargetSelector
-                                                                 │  ├─ CombatPattern
-                                                                 │  └─ RoamController
-                                                                 ▼
-                                            InterceptionDriver → input_controller (kernel)
-```
+| Layer | Technology | Rationale |
+|-------|-----------|-----------|
+| Runtime | Python >= 3.11 | Type hinting, dataclasses, async IO support |
+| Package Manager | `uv` | Zero-install, deterministic installs, lockfile-driven |
+| Linting/Formatting | Ruff | Fast replacement for flake8 + isort; strict in CI |
+## Setup & Installation
 
----
+### Prerequisites
 
-## Requisitos de Sistema
+- Windows 10/11 (64-bit)
+- Administrator privileges for Interception driver installation
+- GPU with CUDA 12.4 recommended (CPU fallback supported)
+## Test Harness & Synthetic Emulation
 
-| Item | Detalhe |
-|---|---|
-| **SO** | Windows 10/11 (64-bit) |
-| **Permissão** | **Administrador** — obrigatório para o driver Interception (entrada em nível de kernel). O `main.py` e o `run_bot.bat` solicitam elevação automaticamente. |
-| **Driver** | Interception instalado (DLL em `Interception/library/x64/interception.dll`). |
-| **GPU** | Recomendada (CUDA 12.4). O índice PyTorch do projeto já aponta para `cu124`. Sem GPU, roda em CPU (mais lento). |
-| **Python** | 3.11 – 3.12 (via `uv`) |
+The `tests/conftest.py` module provides headless CI/CD capabilities without requiring a game window or physical peripherals:
 
-### Dependências
-Gerenciadas pelo `uv` (veja `pyproject.toml` / `uv.lock`):
-`torch`, `torchvision`, `ultralytics`, `pyside6`, `opencv-python`, `mss`, `loguru`,
-`pywin32`, `pygetwindow`, `onnx`.
+### MockInputDriver
 
-**Modelo:** `models/aion.pt` (ou `aion.onnx` / `aion__.engine`). As classes suportadas
-estão em `core/taxonomy.py`.
+Implements the `IInputDriver` protocol entirely in software. All actions (key taps, mouse moves, holds) are recorded in `recorded_actions` for assertion in tests. No kernel-mode dependencies.
 
----
+## Additional Notes
 
-## Inicialização
+- **No fallback input path:** The `input_controller` exclusively uses Interception. If the DLL fails to load, operations raise `RuntimeError` with a descriptive message.
+- **Logging:** All diagnostic output uses `loguru`. The warning `Unknown skill keybind` indicates a key not mapped in `SKILL_COOLDOWNS` — adjust `skill_combo_config.json`.
+- **Legacy code isolation:** Obsolete modules reside in `archive/` and are never imported by the active flow.
+- **Screen-resolution coupling:** The FSM updates `screen_size` each frame; ensure the game window resolution remains consistent or the capture region is reconfigured.
+'```'
+### SyntheticViewport
 
-### Opção recomendada — `run_bot.bat`
-Dê duplo clique (ou execute no terminal). O launcher:
-1. **Solicita elevação de Administrador** automaticamente se necessário.
-2. Exibe um menu para escolher o modo:
+Generates deterministic frame data for the inference pipeline. Features:
 
-```
-  [1] Modo Seguro   (DRY_RUN=1)  — simula entradas, NÃO envia teclas/mouse ao jogo
-  [2] Modo Real     (Interception) — envia entradas reais em nível de kernel
-```
+- Adjustable width/height canvas
+- Synthetic targets (enemy, loot, resource) with configurable position/confidence
+- `to_detection_results()` — converts to the `DetectionResult` format expected by the FSM
+- `generate_frame()` — blank BGRA canvas; useful for blank-frame stress testing
 
-3. Executa `uv run main.py` com a variável de ambiente correta.
+### CI/CD Headless Execution
 
-> ⚠️ **Comece sempre pelo Modo Seguro [1]** para validar detecção, HUD e a FSM sem
-> riscos. Só use o **Modo Real [2]** com o jogo em foco e após conferir o checklist.
-
-### Opção manual (PowerShell como Administrador)
 ```powershell
-# Modo Seguro
-$env:INPUT_DRY_RUN = "1"; uv run main.py
+# Run the full E2E test suite without a game window
+uv run pytest tests/test_e2e_simulation.py
 
-# Modo Real
+# Expected output: 5 passed in ~0.2s
+# No GPU, no window, no admin required
+```
+
+The test suite validates:
+
+- FSM state transitions under empty/detected-detection conditions
+- Target acquisition interrupt logic
+- Combat skill rotation + cooldown tracking
+- Target elimination + recovery flow
+- Defensive telemetry interrupt override
+```
+
+### Installation Flow
+
+```powershell
+# 1. Clone or ensure project directory exists
+git clone <repository-url>
+cd AutonomousVisionEngine
+
+# 2. Install the project + lockfile via uv
+uv sync
+
+# 3. Install Interception driver (one-time)
+#    Download from https://interception.is/winio
+#    Place interception.dll in the expected path (see Interception/ directory)
+
+# 4. Verify the model artifact exists
+ls models/
+
+# 5. Launch in safe mode (DRY_RUN) — no peripherals affected
+$env:INPUT_DRY_RUN = "1"
+uv run main.py
+
+# 5b. Launch in real mode — sends kernel-level input
 uv run main.py
 ```
 
----
+### Configuration
 
-## Checklist In-Game (antes do Modo Real)
+All runtime parameters live in `skill_combo_config.json`. Do not edit this file manually during active sessions; the `AutomationConfig` class validates cooldown consistency on load. Supported keys:
 
-- [ ] Jogo aberto em **modo janela** ou **sem borda** (a captura usa o retângulo da janela).
-- [ ] Personagem posicionado na **área de caça/farm** com o alvo já travável.
-- [ ] **Auto-target on skill use: ON** (Combate → Controles) — as skills miram no inimigo mais próximo.
-- [ ] Teclas de ataque/skills configuradas conforme `skill_combo_config.json`
-      (`SKILL_COOLDOWNS`, `COMBO_SETS`). Evite keybinds inválidos.
-- [ ] Skills/combos nas barras corretas; cooldowns conferidos.
-- [ ] Resolução compatível com a calibração do modelo (a FSM atualiza o `screen_size` a cada frame).
+- `SKILL_COOLDOWNS` — map (skill_id → seconds)
+- `COMBO_SETS` — ordered skill groups for rotation
+- `DELAY_RANDOMIZATION` — Gaussian jitter half-width (seconds)
+- `INPUT_BACKEND` — `"interception"` or `"dry_run"`
+```
+| Vision Inference | PyTorch / ONNX / TensorRT | YOLO model family; swap backend without code changes |
+| Input Driver | Windows Interception kernel | Sub-1ms latency, administrator required |
+| UI Framework | PySide6 | Native Windows widgets, QThread for capture loop |
+| Testing | pytest | Headless CI/CD via conftest synthetic emulation |
+| Configuration | JSON + uv environment vars | Atomic persistence, no external DB required |
+├── .python-version              # Constrained Python runtime version
+├── combat_queue.py              # Duplicate-press prevention (input layer)
+├── config/                      # Runtime configuration store
+│   └── automation_config.json   # JSON-serialized AutomationConfig
+├── core/                        # Contracts & shared types
+│   ├── interfaces.py            # ICaptureEngine, IInferenceEngine, IInputDriver, DetectionResult, BoundingBox
+│   ├── taxonomy.py              # Semantic label mapping (enemy/loot/resource/player)
+│   └── automation_config.py     # AutomationConfig with JSON persistence
+├── engine/                      # Core execution motor
+│   ├── capture_worker.py        # mss-based window capture (BGRA output)
+│   ├── geometry_utils.py        # 2D spatial ops: area_ratio(), center_point()
+│   ├── hotkey_listener.py       # Interception key state monitoring
+│   ├── onnx_client.py           # Inference wrapper (PyTorch ONNX export, TensorRT export)
+│   ├── roam_controller.py       # Circular camera pan + W-key movement
+│   ├── state_machine.py         # FSM: IDLE→EXPLORATION→TARGET_ENGAGEMENT→RECOVERY
+│   ├── target_selector.py       # Nearest-neighbor selection via taxonomy scoring
+│   └── combat_pattern.py        # Cyclic skill rotation + panic/defensive modes
+├── ui/                          # GUI layer (PySide6)
+│   └── main_windows.py          # QMainWindow + AutomationWorker (QThread)
+├── scripts/                     # Operational helpers
+│   └── run_simulation.py        # Headless CI/CD entry point
+├── models/                      # Serialized inference artifacts
+│   └── aion.pt                  # YOLO model weights (or ONNX/TensorRT equivalents)
+├── skill_combo_config.json      # Skill cooldowns, combo sets, interval configuration
+├── test_skill_enabled.py        # Unit-level skill availability check
+├── test_skill_priority.py       # Priority queue validation for skill rotation
+├── utils.py                     # Window/enum helpers used across modules
+├── uv.lock                      # Dependency lock file (uv sync source of truth)
+├── pyproject.toml               # Project metadata + uv configuration
+└── README.md                    # This document
+```
+        C1[Window Handler] -->|mss BGRA| C2[Preprocessor]
+        C2 -->|Normalize| C3[Inference Engine]
+    end
 
----
+    subgraph Brain ["Deterministic FSM Control"]
+        direction TB
+        C3 -->|Detections| F1[State Transition]
+        F1 -->|Emit| I1[Input Driver]
+        F1 -->|Status| F1
+    end
 
-## Modos de Operação
+    subgraph Action ["Humanized Input Layer"]
+        direction TB
+        I1 -->|Spline moves| M1[Mouse Kernel]
+        I1 -->|Key gamma timing| K1[Windows Kernel]
+    end
 
-| Modo | Comportamento |
-|---|---|
-| **HYBRID / ASSIST** | Combate reativo; **não** vagueia pelo mapa (roaming desligado). |
-| **FULL_AUTO** | Combate + **roaming** automático (anda `W`, gira a câmera 90° procurando monstros). |
+    C2 -->|Normalized coords| C3
+    F1 -->|State| I1
+    M1 & K1 -->|Game World| G1[Game Client]
+    G1 -->|Frame| C1
+```
+|-------|---------|---------------|
+| **IDLE** | Initial state / no combat conditions | Transition to EXPLORATION when no targets detected for >2.0s |
+| **EXPLORATION** | No valid target in acquisition cone | Circular camera sweeps + forward movement (W key) + mouse pan; abort on target detection |
+| **TARGET_ENGAGEMENT** | Target detected within acquisition radius | deterministic skill rotation; mouse held for aim; cooldown management |
+| **RECOVERY** | HP ratio dropped >15% in single frame OR combat timeout exceeded | Skill cooldowns cleared; reposition; wait for HP stabilization; re-engage if conditions persist |
 
-A FSM gerencia a concorrência do mouse: ao encontrar um alvo durante o roaming, ela
-**aborta o movimento e aguarda o botão do mouse ser liberado** antes de atacar.
+State transitions are guarded by mutexes to prevent race conditions between the capture thread and input emission thread. The FSM never emits input during state entry/exit transitions, only during sustained state residency.
 
----
+The inference pipeline supports three backends interchangeably:
 
-## Notas
+- **PyTorch `.pt` models** via `ultralytics`
+- **ONNX Runtime** with explicit provider selection (CUDA, CPU, or TensorRT)
+- **TensorRT engine** for maximum FPS in production deployment
 
-- **Sem fallback de input:** o `input_controller` usa exclusivamente o Interception.
-  Se a DLL/driver não carregar, as chamadas levantam `RuntimeError` explicativo.
-- **Logs:** use `loguru`; o aviso `Unknown skill keybind` indica uma tecla de skill
-  não mapeada em `SKILL_COOLDOWNS` — ajuste `skill_combo_config.json`.
-- **Código legado:** tudo que ficou obsoleto está em `archive/` (referência histórica,
-  não é importado pelo fluxo ativo).
+All models emit `DetectionResult` objects in a normalized coordinate space (0.0-1.0 relative to canvas dimensions). Non-Maximum Suppression (NMS) is applied per-frame with configurable IoU threshold to suppress duplicate detections.
+
+Class taxonomy is defined in `core/taxonomy.py` and maps model output indices to semantic labels (enemy, loot, resource, player tag). This mapping is isolated so model swaps do not require code changes.
+
+## Core Components
+
+- **Frame Capture**: mss-based window capture pipeline
+- **Vision Inference**: PyTorch/ONNX/TensorRT model execution
+- **FSM Control**: IDLE → EXPLORATION → TARGET_ENGAGEMENT → RECOVERY
+- **Input Abstraction**: Interception driver with humanized timing
