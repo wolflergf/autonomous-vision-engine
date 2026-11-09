@@ -1,119 +1,93 @@
-# core/interfaces.py
+"""Core interfaces for the autonomous vision engine."""
+
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, List, Optional
 
 import numpy as np
 
 
+@dataclass
+class BoundingBox:
+    """Simple bounding box class for DetectionResult.box compatibility."""
+    x: float
+    y: float
+    w: float
+    h: float
+
+    @property
+    def width(self) -> float:
+        return self.w
+
+    @property
+    def height(self) -> float:
+        return self.h
+
+
 @dataclass(frozen=True, slots=True)
 class DetectionResult:
+    """Result of a detection (object, target, etc.) in the scene."""
     x: float
     y: float
     width: float
     height: float
     confidence: float
-    class_name: str
+    label: str | None = None
+    class_name: str | None = None
+
+    @property
+    def box(self) -> BoundingBox:
+        """Return BoundingBox with x, y, width, height for test compatibility."""
+        return BoundingBox(x=self.x, y=self.y, w=self.width, h=self.height)
 
 
 class ICaptureEngine(ABC):
     @abstractmethod
-    def get_latest_frame(self) -> np.ndarray | None:
-        """Retorna o frame mais recente sem alocar cópias adicionais na memória."""
+    def get_latest_frame(self) -> np.ndarray | None: ...
 
     @abstractmethod
-    def get_dimensions(self) -> tuple[int, int]:
-        """Retorna largura e altura da janela capturada."""
+    def get_dimensions(self) -> tuple[int, int]: ...
 
 
 class IInferenceEngine(ABC):
     @abstractmethod
-    def infer(self, frame: np.ndarray) -> list[DetectionResult]:
-        """Executa a inferência de visão computacional."""
+    def infer(self, frame: np.ndarray) -> list[DetectionResult]: ...
 
 
 class IInputDriver(ABC):
-    @abstractmethod
-    def tap_key(self, key: str, duration: float = 0.01) -> bool:
-        pass
+    """Interface for input drivers used by the FSM and other engine components."""
 
     @abstractmethod
-    def send_relative_mouse(self, dx: int, dy: int) -> bool:
-        pass
+    def tap_key(self, key: str, duration: float = 0.01) -> bool: ...
 
-    # ------------------------------------------------------------------
-    # Capacidades estendidas (aditivas).
-    #
-    # Possuem implementação padrão para NÃO quebrar implementações
-    # existentes de IInputDriver nem o contrato de core/interfaces.py.
-    # Implementações concretas (ex.: InterceptionDriver) devem sobrescrever
-    # para habilitar roaming / ações que exigem tecla mantida e mouse.
-    # ------------------------------------------------------------------
+    @abstractmethod
+    def send_relative_mouse(self, dx: int, dy: int) -> bool: ...
 
-    def hold_key(self, key: str, duration: float) -> bool:
-        """Mantém uma tecla pressionada por `duration` segundos.
+    @abstractmethod
+    def hold_key(self, key: str, duration: float) -> bool: ...
 
-        Default: degrada para um simples tap (comportamento conservador).
-        """
-        return self.tap_key(key)
+    @abstractmethod
+    def key_down(self, key: str) -> bool: ...
 
-    def key_down(self, key: str) -> bool:
-        """Mantém uma tecla pressionada até ``key_up`` (caminhada fluida).
+    @abstractmethod
+    def key_up(self, key: str) -> bool: ...
 
-        Default: degrada para um tap (comportamento conservador).
-        """
-        return self.tap_key(key)
+    @abstractmethod
+    def hold_mouse(self, button: str = "right", down: bool = True) -> bool: ...
 
-    def key_up(self, key: str) -> bool:
-        """Solta uma tecla mantida por ``key_down``.
+    @abstractmethod
+    def move_mouse_relative(self, dx: int, dy: int, steps: int = 1, duration: float = 0.0) -> bool: ...
 
-        Default: sem efeito (retorna True), indicando não-suportado.
-        """
-        return True
+    @abstractmethod
+    def focus(self) -> bool: ...
 
-    def hold_mouse(self, button: str = "right", down: bool = True) -> bool:
-        """Pressiona (down=True) ou solta (down=False) um botão do mouse,
-        SEM soltar automaticamente — usado para arrastar a câmera no roaming.
+    @abstractmethod
+    def lock_cursor(self) -> bool: ...
 
-        Default: sem efeito (retorna False), indicando não-suportado.
-        """
-        return False
+    @abstractmethod
+    def unlock_cursor(self) -> bool: ...
 
-    def move_mouse_relative(
-        self, dx: int, dy: int, steps: int = 1, duration: float = 0.0
-    ) -> bool:
-        """Move o mouse por deltas relativos (pan de câmera).
-
-        Default: reutiliza send_relative_mouse com um único passo.
-        """
-        return self.send_relative_mouse(dx, dy)
-
-    def focus(self) -> bool:
-        """Traz a janela alvo para foreground (best-effort).
-
-        Default: sem efeito (retorna True para não interromper o fluxo).
-        """
-        return True
-
-    def lock_cursor(self) -> bool:
-        """Confina o cursor à janela do jogo (ClipCursor).
-
-        Default: sem efeito (retorna True), indicando não-suportado.
-        """
-        return True
-
-    def unlock_cursor(self) -> bool:
-        """Libera o cursor confinado (ClipCursor(None)).
-
-        Default: sem efeito (retorna True), indicando não-suportado.
-        """
-        return True
-
-    def click_at(self, x: int, y: int, button: str = "left") -> bool:
-        """Clica em coordenadas absolutas (x, y) na tela.
-
-        Usado para selecionar alvos (ex.: nós de recurso para auto-pathing).
-
-        Default: sem efeito (retorna False), indicando não-suportado.
-        Implementações concretas (ex.: InterceptionDriver) devem sobrescrever.
-        """
-        return False
+    @abstractmethod
+    def click_at(self, x: int, y: int, button: str = "left") -> bool: ...
